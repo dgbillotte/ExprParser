@@ -1,5 +1,7 @@
 # ExprParserWriter
 
+## 🚧 NOTE: This is a work in progress, variables are not yet bound and there is at least one BUG in it. 🚧
+
 ExprParserWriter is a parser / re-writer for the C-like expressions that are
 used in the expr/expr~ objects of the PureData programming language.
 
