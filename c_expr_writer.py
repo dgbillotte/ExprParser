@@ -1,16 +1,19 @@
-from expr_arpeggio_parser import ExprArpeggioGrammar as grammar
+from expr_arpeggio_parser import ExprArpeggioParser
 from gvgen import *
 
 class CExprWriter:
     def __init__(self, expression):
         self.expression = expression
-        self.expr_tree = grammar.parse_to_ast(expression)
+        self.expr_tree = ExprArpeggioParser.parse_to_ast(expression)
         
     def to_ast(self):
         return self.expr_tree
 
     def to_c_simd(self):
-        return CExprWriter._output_c_simd(self.expr_tree)
+        return self._to_c_simd()
+
+    def to_c_nested(self):
+        return self._to_c_nested()
 
     def to_dot(self, expr):
         graph = GvGen()
@@ -48,43 +51,121 @@ class CExprWriter:
         def num_allocated(self):
             return self._next
 
-    def _output_c_simd(expr_tree):
-        ba = BufferAllocator()
+    def _to_c_simd(self):
+        ba = CExprWriter.BufferAllocator()
         lines = []
 
-        def _output_c_simd_R(expr_tree):
+        def _to_c_simd_R(expr_tree):
             if expr_tree.type in ("num", "var"):
                 return expr_tree.value
 
             args = []
             buffers = []
             for node in expr_tree.nodes:
-                val = _output_c_simd_R(node)
+                val = _to_c_simd_R(node)
                 args.append(val)
                 if type(val) == str and val.startswith("B"):
                     buffers.append(val)
 
             next_buf = f"BO{ba.next()}"
             args.append(next_buf)
-            lines.append(f"{get_hv_func(expr_tree.value)}({', '.join(args)});")
+            f_name = ExprOpMap.get_hv_func(expr_tree.value)
+            lines.append(f"{f_name}({', '.join(args)});")
             [ba.free(int(b[2])) for b in buffers]
 
             return next_buf
 
-        lines.append(_output_c_simd_R(expr_tree))
+        lines.append(_to_c_simd_R(self.expr_tree))
         return lines
 
 
-    # def to_c_nested(self):
-        # This works off of the raw parse tree and outputs 
-        # c-code as nested function calls
-        # It needs slight tweaking to work off of the AST
-        # match expr.rule_name:
-        #     case "num_i"|"num_f"|"var":
-        #         return expr.value
-        #     case "func":
-        #         return expr[0].value + "(" + ", ".join([to_c(p) for p in expr[1:]]) + ")"
-        #     case "unary":
-        #         return f"op{expr[0].value}({to_c(expr[1])})"
-        #     case "lor"|"land"|"bor"|"xor"|"band"|"eq"|"gtlt"|"shift"|"term"|"factor":
-        #         return f"op{str(expr[1])}({to_c(expr[0])}, {to_c(expr[2])})"
+    def _to_c_nested(self):
+        """Output C-code as nested function calls"""
+
+        def _to_c_nested_R(expr_tree):
+            match expr_tree.type:
+                case "num"|"var":
+                    return expr_tree.value
+                case _:  #"func":
+                    f_name = ExprOpMap.get_hv_func(expr_tree.value)
+                    args = [_to_c_nested_R(p) for p in expr_tree.nodes]
+                    # return expr_tree.nodes[0].value + "(" + params + ")"
+                    return f"{f_name}({', '.join(args)})"
+                # case "unary":
+                #     param = _to_c_nested_R(expr_tree.nodes[1])
+                #     return f"op{expr_tree.nodes[0].value}({param})"
+                # case "binary":
+                #     params = ", ".join([
+                #         _to_c_nested_R(expr_tree.nodes[0]),
+                #         _to_c_nested_R(expr_tree.nodes[1])
+                #     ])
+                #     return f"op{str(expr_tree.nodes[1])}({params})"
+
+        return _to_c_nested_R(self.expr_tree) + ";"
+
+class ExprOpMap:
+    op_map = {
+        "~": "",
+        "-": "__hv_neg_f",
+        "*": "__hv_mul_f",
+        "/": "__hv_div_f",
+        "%": "__hv_?_f",
+        "+": "__hv_add_f",
+        "-": "__hv_sub_f",
+        "<": "__hv_lt_f",
+        "<=": "__hv_lte_f",
+        ">": "__hv_gt_f",
+        ">=": "__hv_gte_f",
+        "!=": "__hv_neq_f",
+        "&&": "__hv_and_f",
+        "||": "__hv_or_f",
+        "abs": "__hv_abs_f",
+        "acos": "__hv_acos_f",
+        "acosh": "__hv_acosh_f",
+        "asin": "__hv_asin_f",
+        "asinh": "__hv_asinh_f",
+        "atan": "__hv_atan_f",
+        "atan2": "__hv_atan2_f",
+        "cbrt": "__hv_?_f",
+        "ceil": "__hv_ceil_f",
+        "copysign": "__hv_?_f",  # does this just return +/- 1? It doesn't come up in pd...
+        "cos": "__hv_cos_f",
+        "cosh": "__hv_cosh_f",
+        "drem": "__hv_?_f",
+        "erf": "__hv_?_f",
+        "erfc": "__hv_?_f",
+        "exp": "__hv_exp_f",
+        "expm1": "__hv_?_f",
+        "fact": "__hv_?_f",
+        "finite": "__hv_?_f",
+        "float": "__hv_cast_if",
+        "floor": "__hv_floor_f",
+        "fmod": "__hv_?_f",
+        "ldexp": "__hv_?_f",
+        "if": "__hv_?_f",
+        "imodf": "__hv_?_f",
+        "int": "__hv_cast_fi",
+        "isinf": "__hv_?_f",
+        "isnan": "__hv_?_f",
+        "ln": "__hv_?_f",
+        "log": "__hv_?_f",
+        "log10": "__hv_?_f",
+        "log1p": "__hv_?_f",
+        "max": "__hv_max_f",
+        "min": "__hv_min_f",
+        "modf": "__hv_?_f",
+        "pow": "__hv_pow_f",
+        "rint": "__hv_?_f",  # round to nearest int
+        "sin": "__hv_sin_f",
+        "sinh": "__hv_sinh_f",
+        "size": "__hv_?_f",
+        "sqrt": "__hv_sqrt_f",
+        "sum": "__hv_?_f",  # sum of all elements of a table
+        "Sum": "__hv_?_f",  # sum of elemnets of a specified boundary of a table???
+        "tan": "__hv_tan_f",
+        "tanh": "__hv_tanh_f",
+    }
+
+    @classmethod
+    def get_hv_func(cls, symbol):
+        return cls.op_map.get(symbol, symbol)
