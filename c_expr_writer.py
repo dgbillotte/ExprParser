@@ -69,7 +69,7 @@ class CExprWriter:
 
             next_buf = f"BO{ba.next()}"
             args.append(next_buf)
-            f_name = ExprOpMap.get_hv_func(expr_tree.value)
+            f_name = ExprOpMap.get_hv_func_simd(expr_tree.value)
             lines.append(f"{f_name}({', '.join(args)});")
             [ba.free(int(b[2])) for b in buffers]
 
@@ -105,67 +105,71 @@ class CExprWriter:
 
 class ExprOpMap:
     op_map = {
-        "~": "",
-        "-": "__hv_neg_f",
-        "*": "__hv_mul_f",
-        "/": "__hv_div_f",
-        "%": "__hv_?_f",
-        "+": "__hv_add_f",
-        "-": "__hv_sub_f",
-        "<": "__hv_lt_f",
-        "<=": "__hv_lte_f",
-        ">": "__hv_gt_f",
-        ">=": "__hv_gte_f",
-        "!=": "__hv_neq_f",
-        "&&": "__hv_and_f",
-        "||": "__hv_or_f",
-        "abs": "__hv_abs_f",
-        "acos": "__hv_acos_f",
-        "acosh": "__hv_acosh_f",
-        "asin": "__hv_asin_f",
-        "asinh": "__hv_asinh_f",
-        "atan": "__hv_atan_f",
-        "atan2": "__hv_atan2_f",
-        "cbrt": "__hv_?_f",
-        "ceil": "__hv_ceil_f",
-        "copysign": "__hv_?_f",  # does this just return +/- 1? It doesn't come up in pd...
-        "cos": "__hv_cos_f",
-        "cosh": "__hv_cosh_f",
-        "drem": "__hv_?_f",
-        "erf": "__hv_?_f",
-        "erfc": "__hv_?_f",
-        "exp": "__hv_exp_f",
-        "expm1": "__hv_?_f",
-        "fact": "__hv_?_f",
-        "finite": "__hv_?_f",
-        "float": "__hv_cast_if",
-        "floor": "__hv_floor_f",
-        "fmod": "__hv_?_f",
-        "ldexp": "__hv_?_f",
-        "if": "__hv_?_f",
-        "imodf": "__hv_?_f",
-        "int": "__hv_cast_fi",
-        "isinf": "__hv_?_f",
-        "isnan": "__hv_?_f",
-        "ln": "__hv_?_f",
-        "log": "__hv_?_f",
-        "log10": "__hv_?_f",
-        "log1p": "__hv_?_f",
-        "max": "__hv_max_f",
-        "min": "__hv_min_f",
-        "modf": "__hv_?_f",
-        "pow": "__hv_pow_f",
-        "rint": "__hv_?_f",  # round to nearest int
-        "sin": "__hv_sin_f",
-        "sinh": "__hv_sinh_f",
-        "size": "__hv_?_f",
-        "sqrt": "__hv_sqrt_f",
-        "sum": "__hv_?_f",  # sum of all elements of a table
-        "Sum": "__hv_?_f",  # sum of elemnets of a specified boundary of a table???
-        "tan": "__hv_tan_f",
-        "tanh": "__hv_tanh_f",
+        "~": "hv_?_f",
+        "-": "hv_neg_f",
+        "*": "hv_mul_f",
+        "/": "hv_div_f",
+        "%": "hv_?_f",
+        "+": "hv_add_f",
+        "-": "hv_sub_f",
+        "<": "hv_lt_f",
+        "<=": "hv_lte_f",
+        ">": "hv_gt_f",
+        ">=": "hv_gte_f",
+        "!=": "hv_neq_f",
+        "&&": "hv_and_f",
+        "||": "hv_or_f",
+        "abs": "hv_abs_f",
+        "acos": "hv_acos_f",
+        "acosh": "hv_acosh_f",
+        "asin": "hv_asin_f",
+        "asinh": "hv_asinh_f",
+        "atan": "hv_atan_f",
+        "atan2": "hv_atan2_f",
+        "cbrt": "hv_?_f",
+        "ceil": "hv_ceil_f",
+        "copysign": "hv_?_f",  # does this just return +/- 1? It doesn't come up in pd...
+        "cos": "hv_cos_f",
+        "cosh": "hv_cosh_f",
+        "drem": "hv_?_f",
+        "erf": "hv_?_f",
+        "erfc": "hv_?_f",
+        "exp": "hv_exp_f",
+        "expm1": "hv_?_f",
+        "fact": "hv_?_f",
+        "finite": "hv_?_f",
+        "float": "hv_cast_if",
+        "floor": "hv_floor_f",
+        "fmod": "hv_?_f",
+        "ldexp": "hv_?_f",
+        "if": "hv_?_f",
+        "imodf": "hv_?_f",
+        "int": "hv_cast_fi",
+        "isinf": "hv_?_f",
+        "isnan": "hv_?_f",
+        "ln": "hv_?_f",
+        "log": "hv_?_f",
+        "log10": "hv_?_f",
+        "log1p": "hv_?_f",
+        "max": "hv_max_f",
+        "min": "hv_min_f",
+        "modf": "hv_?_f",
+        "pow": "hv_pow_f",
+        "rint": "hv_?_f",  # round to nearest int
+        "sin": "hv_sin_f",
+        "sinh": "hv_sinh_f",
+        "size": "hv_?_f",
+        "sqrt": "hv_sqrt_f",
+        "sum": "hv_?_f",  # sum of all elements of a table
+        "Sum": "hv_?_f",  # sum of elemnets of a specified boundary of a table???
+        "tan": "hv_tan_f",
+        "tanh": "hv_tanh_f",
     }
 
     @classmethod
     def get_hv_func(cls, symbol):
         return cls.op_map.get(symbol, symbol)
+
+    @classmethod
+    def get_hv_func_simd(cls, symbol):
+        return "__" + cls.op_map.get(symbol, symbol)
