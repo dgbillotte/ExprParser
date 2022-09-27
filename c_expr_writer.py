@@ -5,7 +5,7 @@ class CExprWriter:
     def __init__(self, expression):
         self.expression = expression
         self.expr_tree = ExprArpeggioParser.parse_to_ast(expression)
-        self.parse_tree = ExprArpeggioParser.parse_to_ast(expression)
+        self.parse_tree = ExprArpeggioParser.parse(expression)
         
     def to_ast(self):
         return self.expr_tree
