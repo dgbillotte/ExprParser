@@ -16,12 +16,12 @@ def band():     return eq, ZeroOrMore("&", eq)
 def eq():       return gtlt, ZeroOrMore(["==","!="], gtlt)
 def gtlt():     return shift, ZeroOrMore(["<","<=",">",">="], shift)
 def shift():    return term, ZeroOrMore(["<<",">>"], term)
-def term():     return factor, ZeroOrMore(["+","-"], factor)
+def term():     return factor, ZeroOrMore(["+","-"], factor)    # RtoL
 def factor():   return unary, ZeroOrMore(["*","/","%"], unary)
-def unary():    return [(["-","~","!"], unary), primary]
+def unary():    return [(["-","~","!"], unary), primary]        # RtoL
 def primary():  return [number, var, func, group]
 def number():   return [num_f, num_i]
-def var():      return regex(r"\$[fis]\d+")
+def var():      return regex(r"\$[fisv]\d+")
 def func():     return [
                     (f_name, hide("("), expr, hide(")")),
                     (f_name, hide("("), expr, hide(","), expr, hide(")")),

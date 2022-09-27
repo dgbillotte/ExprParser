@@ -5,9 +5,13 @@ class CExprWriter:
     def __init__(self, expression):
         self.expression = expression
         self.expr_tree = ExprArpeggioParser.parse_to_ast(expression)
+        self.parse_tree = ExprArpeggioParser.parse_to_ast(expression)
         
     def to_ast(self):
         return self.expr_tree
+
+    def to_parse_tree(self):
+        return self.parse_tree
 
     def to_c_simd(self):
         return self._to_c_simd()
@@ -15,19 +19,19 @@ class CExprWriter:
     def to_c_nested(self):
         return self._to_c_nested()
 
-    def to_dot(self, expr):
+    def to_dot(self, filename):
         graph = GvGen()
-        CExprWriter._expr_node_to_gv(self.expr_tree, graph)
-        CExprWriter._write_dot(graph)
+        self._expr_node_to_gv(self.expr_tree, graph)
+        self._write_dot(graph, filename)
 
-    def _expr_node_to_gv(tree, graph):
+    def _expr_node_to_gv(self, tree, graph):
         new_node = graph.newItem(f"{tree.type}:{tree.value}")
         for node in tree.nodes:
-            graph.newLink(new_node, CExprWriter._exprNode_to_gv(node, graph))
+            graph.newLink(new_node, self._expr_node_to_gv(node, graph))
         return new_node
 
-    def _write_dot(graph, fname):
-        with open(fname, "w") as f:
+    def _write_dot(self, graph, filename):
+        with open(filename, "w") as f:
             graph.dot(f)
 
     class BufferAllocator:
@@ -86,20 +90,10 @@ class CExprWriter:
             match expr_tree.type:
                 case "num"|"var":
                     return expr_tree.value
-                case _:  #"func":
+                case _:
                     f_name = ExprOpMap.get_hv_func(expr_tree.value)
                     args = [_to_c_nested_R(p) for p in expr_tree.nodes]
-                    # return expr_tree.nodes[0].value + "(" + params + ")"
                     return f"{f_name}({', '.join(args)})"
-                # case "unary":
-                #     param = _to_c_nested_R(expr_tree.nodes[1])
-                #     return f"op{expr_tree.nodes[0].value}({param})"
-                # case "binary":
-                #     params = ", ".join([
-                #         _to_c_nested_R(expr_tree.nodes[0]),
-                #         _to_c_nested_R(expr_tree.nodes[1])
-                #     ])
-                #     return f"op{str(expr_tree.nodes[1])}({params})"
 
         return _to_c_nested_R(self.expr_tree) + ";"
 

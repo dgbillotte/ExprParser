@@ -30,8 +30,36 @@ class ExprArpeggioParser():
                 return ExprNode("func", expr[0].value, [cls.to_expr_tree(p) for p in expr[1:]])
             case "unary":
                 return ExprNode("unary", expr[0].value, [cls.to_expr_tree(expr[1])])
-            case "lor"|"land"|"bor"|"xor"|"band"|"eq"|"gtlt"|"shift"|"term"|"factor":
-                return ExprNode("binary", str(expr[1]), [cls.to_expr_tree(expr[0]), cls.to_expr_tree(expr[2])])
+            case "term":
+                # this is RtoL associativity
+                val = None
+                tmp = None
+                subtree = None
+                for i in range(len(expr)):
+                    if i % 2 == 0:
+                        val = cls.to_expr_tree(expr[i])
+                    else:
+                        foo = ExprNode("binary", str(expr[i]), [val])
+                        if not subtree:
+                            subtree = foo
+                        else:
+                            tmp.nodes.append(foo)
+                        tmp = foo
+                tmp.nodes.append(val)
+                return subtree
+
+            case "lor"|"land"|"bor"|"xor"|"band"|"eq"|"gtlt"|"shift"|"factor":
+                # this is LtoR associativity
+                subtree = None
+                for i in range(len(expr)):
+                    if i % 2 == 0:
+                        if not subtree:
+                            subtree = cls.to_expr_tree(expr[i])
+                        else:
+                            subtree.nodes.append(cls.to_expr_tree(expr[i]))
+                    else:
+                        subtree = ExprNode("binary", str(expr[i]), [subtree])
+                return subtree
 
 
 class ExprNode:
